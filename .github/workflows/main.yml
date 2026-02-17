@@ -3,7 +3,7 @@ name: Build and Release Single Exe
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ] # Triggers on tags like v3.10 or v3.11
+    tags: [ 'v*' ]
 
 jobs:
   release:
@@ -15,35 +15,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Essential to see all tags for versioning
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x' # Or 9.0.x depending on your project
+          dotnet-version: '8.0.x'
 
       - name: Determine Version
         id: versioning
         shell: pwsh
         run: |
-          # Get the latest tag (e.g., v3.10) or default to v3.10.0 if none found
           $latestTag = git describe --tags --abbrev=0 2>$null
           if ($null -eq $latestTag) { $latestTag = "v3.10" }
           
-          # Clean 'v' prefix for logic
           $baseVer = $latestTag.TrimStart('v')
           
-          # If we are currently ON a tag, use it. Otherwise, append padded run number
           if ($env:GITHUB_REF -like "refs/tags/*") {
               $finalVer = $baseVer
           } else {
-              # Format: 3.10.001 (Padded run number)
               $runNumber = "${{ github.run_number }}".PadLeft(3, '0')
               $finalVer = "$baseVer.$runNumber"
           }
           
           echo "VERSION=$finalVer" >> $env:GITHUB_OUTPUT
-          echo "Determined Version: $finalVer"
 
       - name: Dotnet Publish
         run: |
@@ -57,13 +52,15 @@ jobs:
       - name: Prepare Artifacts
         shell: pwsh
         run: |
-          # Ensure devices.json is included in the zip
           Copy-Item "devices.json" -Destination "./publish/devices.json"
           Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip"
 
-      - name: Create GitHub Release
+      # --- NEW: GENERATE RELEASE NOTES ---
+      - name: Generate Release Notes
+        id: release_notes
         uses: softprops/action-gh-release@v2
         with:
+          generate_release_notes: true # Automatically generates a list of commits
           tag_name: v${{ steps.versioning.outputs.VERSION }}
           name: DeviceAuditor v${{ steps.versioning.outputs.VERSION }}
           files: |
