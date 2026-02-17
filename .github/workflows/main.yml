@@ -4,7 +4,9 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
-
+    # Ignore triggers when only the workflow file is updated
+    paths-ignore:
+      - '.github/workflows/**'
 jobs:
   release:
     runs-on: windows-latest
@@ -26,20 +28,28 @@ jobs:
         id: versioning
         shell: pwsh
         run: |
+          # Try to get the latest tag; if it fails, default to v3.10
           $latestTag = git describe --tags --abbrev=0 2>$null
-          if ($null -eq $latestTag) { $latestTag = "v3.10" }
+          if (-not $latestTag) { 
+              $latestTag = "v3.10" 
+          }
           
+          # Strip 'v' and prepare the base version
           $baseVer = $latestTag.TrimStart('v')
           
           if ($env:GITHUB_REF -like "refs/tags/*") {
+              # If we pushed a tag (e.g., v3.11), use it exactly
               $finalVer = $baseVer
           } else {
+              # Padded run number for dev builds: 3.10.002
               $runNumber = "${{ github.run_number }}".PadLeft(3, '0')
               $finalVer = "$baseVer.$runNumber"
           }
           
-          echo "VERSION=$finalVer" >> $env:GITHUB_OUTPUT
-
+          # Use Add-Content for more reliable environment variable writing in Windows
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "VERSION=$finalVer"
+          Write-Host "Determined Version: $finalVer"
+          
       - name: Dotnet Publish
         run: |
           dotnet publish -c Release -r win-x64 --self-contained true `
