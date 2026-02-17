@@ -1,0 +1,74 @@
+name: Build and Release Single Exe
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ] # Triggers on tags like v3.10 or v3.11
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Essential to see all tags for versioning
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x' # Or 9.0.x depending on your project
+
+      - name: Determine Version
+        id: versioning
+        shell: pwsh
+        run: |
+          # Get the latest tag (e.g., v3.10) or default to v3.10.0 if none found
+          $latestTag = git describe --tags --abbrev=0 2>$null
+          if ($null -eq $latestTag) { $latestTag = "v3.10" }
+          
+          # Clean 'v' prefix for logic
+          $baseVer = $latestTag.TrimStart('v')
+          
+          # If we are currently ON a tag, use it. Otherwise, append padded run number
+          if ($env:GITHUB_REF -like "refs/tags/*") {
+              $finalVer = $baseVer
+          } else {
+              # Format: 3.10.001 (Padded run number)
+              $runNumber = "${{ github.run_number }}".PadLeft(3, '0')
+              $finalVer = "$baseVer.$runNumber"
+          }
+          
+          echo "VERSION=$finalVer" >> $env:GITHUB_OUTPUT
+          echo "Determined Version: $finalVer"
+
+      - name: Dotnet Publish
+        run: |
+          dotnet publish -c Release -r win-x64 --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:AssemblyVersion=${{ steps.versioning.outputs.VERSION }} `
+          -p:FileVersion=${{ steps.versioning.outputs.VERSION }} `
+          -o ./publish
+
+      - name: Prepare Artifacts
+        shell: pwsh
+        run: |
+          # Ensure devices.json is included in the zip
+          Copy-Item "devices.json" -Destination "./publish/devices.json"
+          Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.versioning.outputs.VERSION }}
+          name: DeviceAuditor v${{ steps.versioning.outputs.VERSION }}
+          files: |
+            DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
