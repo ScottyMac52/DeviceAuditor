@@ -31,8 +31,15 @@ jobs:
         id: versioning
         shell: pwsh
         run: |
-          # Robust check for latest tag, default to v3.10 if missing
+          # Clear any previous exit codes
+          $global:LASTEXITCODE = 0
+          
+          # Try to get the latest tag; suppress errors if no tags exist
           $latestTag = git describe --tags --abbrev=0 2>$null
+          
+          # Reset exit code immediately so the failed git command doesn't fail the step
+          $global:LASTEXITCODE = 0
+          
           if (-not $latestTag) { 
               $latestTag = "v3.10" 
           }
@@ -42,15 +49,18 @@ jobs:
           if ($env:GITHUB_REF -like "refs/tags/*") {
               $finalVer = $baseVer
           } else {
-              # Format: 3.10.003
               $runNumber = "${{ github.run_number }}".PadLeft(3, '0')
               $finalVer = "$baseVer.$runNumber"
           }
           
-          # Force UTF8 encoding to prevent Windows Runner exit errors
+          # Write to output file using UTF8
           $versionLine = "VERSION=$finalVer"
           [System.IO.File]::AppendAllLines($env:GITHUB_OUTPUT, [string[]]$versionLine)
-          Write-Host "Determined Version: $finalVer"     
+          
+          Write-Host "Determined Version: $finalVer"
+          
+          # Final safety reset to ensure the runner sees a clean exit
+          exit 0
           
       - name: Dotnet Publish
         run: |
