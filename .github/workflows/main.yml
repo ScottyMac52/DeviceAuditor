@@ -94,13 +94,12 @@ jobs:
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')
         with:
           tag_name: v${{ steps.versioning.outputs.VERSION }}
           name: DeviceAuditor v${{ steps.versioning.outputs.VERSION }}
           generate_release_notes: true
           files: DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
           draft: false
-          prerelease: false
+          prerelease: false   # ← or true if you want drafts/prereleases on branch pushes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
