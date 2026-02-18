@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace DeviceAuditor.Services.Interfaces
+﻿namespace DeviceAuditor.Services.Interfaces
 {
     /// <summary>
     /// Contract for the Device Database
@@ -22,6 +16,6 @@ namespace DeviceAuditor.Services.Interfaces
         /// <param name="pid"></param>
         /// <param name="vid"></param>
         /// <returns></returns>
-        string GetName(string pid, string vid);
+        string? GetName(string? pid, string? vid);
     }
 }

@@ -1,42 +1,75 @@
 ﻿using DeviceAuditor.Services.Interfaces;
+using Microsoft.Extensions.Logging;
+using System.Reflection;
 using System.Text.Json;
 
-namespace DeviceAuditor.Services
+public class DeviceDatabase : IDeviceDatabase
 {
-    /// <summary>
-    /// Implements <see cref="IDeviceDatabase"/> 
-    /// </summary>
-    public class DeviceDatabase : IDeviceDatabase
+    private readonly ILogger<DeviceDatabase> _logger;
+    private readonly Dictionary<string, Dictionary<string, string>> _db = new();
+
+    public DeviceDatabase(ILogger<DeviceDatabase> logger)
     {
-        private Dictionary<string, string> _db = new Dictionary<string, string>();
+        _logger = logger;
+    }
 
-        /// <inheritdoc/>
-        public bool Load()
+    public bool Load()
+    {
+        try
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "devices.json");
-            if (!File.Exists(path))
+            var assembly = Assembly.GetExecutingAssembly();
+            string resourceName = $"{assembly.GetName().Name}.devices.json";
+
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream == null)
             {
-                Console.WriteLine("Error: devices.json not found in the application directory.");
+                _logger.LogCritical("Embedded resource not found: {ResourceName}", resourceName);
                 return false;
             }
-            try
+
+            using var reader = new StreamReader(stream);
+            string json = reader.ReadToEnd();
+
+            var data = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, string>>>(json);
+            if (data == null)
             {
-                string json = File.ReadAllText(path);
-                _db = JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? new Dictionary<string, string>();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error parsing devices.json: {ex.Message}");
+                _logger.LogError("Failed to deserialize devices.json — invalid format");
                 return false;
             }
+
+            foreach (var kvp in data)
+            {
+                _db[kvp.Key.ToUpperInvariant()] = kvp.Value;
+            }
+
+            _logger.LogDebug("Loaded {Count} vendor entries from devices.json", _db.Count);
+            return true;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "JSON parse error in devices.json");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error loading devices.json");
+            return false;
+        }
+    }
+
+    public string? GetName(string? pid, string? vid)
+    {
+        if (string.IsNullOrEmpty(pid) || string.IsNullOrEmpty(vid))
+            return null;
+
+        vid = vid.ToUpperInvariant();
+        pid = pid.ToUpperInvariant();
+
+        if (_db.TryGetValue(vid, out var pids) && pids.TryGetValue(pid, out var name))
+        {
+            return name;
         }
 
-        /// <inheritdoc/>
-        public string GetName(string pid, string vid)
-        {
-            if (_db.TryGetValue(pid, out string name)) return name;
-            return $"Unknown {vid} Device ({pid})";
-        }
+        return $"Unknown {vid} Device ({pid})";
     }
 }
