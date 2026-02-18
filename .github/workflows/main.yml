@@ -4,12 +4,10 @@ on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
-    # Ignore triggers when only the workflow file is updated
     paths-ignore:
       - '.github/workflows/**'
-  # Added ability to manually trigger the build from the Actions tab
   workflow_dispatch:
-  
+
 jobs:
   release:
     runs-on: windows-latest
@@ -31,62 +29,77 @@ jobs:
         id: versioning
         shell: pwsh
         run: |
-          # Clear any previous exit codes
           $global:LASTEXITCODE = 0
           
-          # Try to get the latest tag; suppress errors if no tags exist
           $latestTag = git describe --tags --abbrev=0 2>$null
-          
-          # Reset exit code immediately so the failed git command doesn't fail the step
           $global:LASTEXITCODE = 0
           
           if (-not $latestTag) { 
-              $latestTag = "v3.10" 
+              $latestTag = "v3.10.0" 
           }
           
           $baseVer = $latestTag.TrimStart('v')
           
+          # Split base version into parts (assume major.minor[.patch])
+          $parts = $baseVer -split '\.'
+          while ($parts.Count -lt 3) { $parts += '0' }
+          
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+          
           if ($env:GITHUB_REF -like "refs/tags/*") {
-              $finalVer = $baseVer
+              # Tagged release: use base as-is (assume already 3 parts)
+              $asmVer = "$major.$minor.$patch.0"
+              $fileVer = "$major.$minor.$patch.0"
           } else {
-              $runNumber = "${{ github.run_number }}".PadLeft(3, '0')
-              $finalVer = "$baseVer.$runNumber"
+              # CI build: add run number as build/revision
+              $buildNum = [int]"${{ github.run_number }}"
+              $asmVer = "$major.$minor.$patch.$buildNum"      # valid 4-part for AssemblyVersion
+              $fileVer = "$major.$minor.$patch.$buildNum"     # or make more detailed if desired
           }
           
-          # Write to output file using UTF8
-          $versionLine = "VERSION=$finalVer"
-          [System.IO.File]::AppendAllLines($env:GITHUB_OUTPUT, [string[]]$versionLine)
+          # Optional: append commit short hash or date for FileVersion if you want more uniqueness
+          # $shortHash = git rev-parse --short HEAD
+          # $fileVer = "$major.$minor.$patch.$buildNum+$shortHash"
           
-          Write-Host "Determined Version: $finalVer"
+          Write-Output "VERSION=$asmVer" >> $env:GITHUB_OUTPUT
+          Write-Output "FILE_VERSION=$fileVer" >> $env:GITHUB_OUTPUT
           
-          # Final safety reset to ensure the runner sees a clean exit
-          exit 0
-          
+          Write-Host "Assembly/File Version: $asmVer"
+          Write-Host "Detailed File Version: $fileVer"
+
       - name: Dotnet Publish
         run: |
-          dotnet publish -c Release -r win-x64 --self-contained true `
-          -p:PublishSingleFile=true `
-          -p:IncludeNativeLibrariesForSelfExtract=true `
-          -p:AssemblyVersion=${{ steps.versioning.outputs.VERSION }} `
-          -p:FileVersion=${{ steps.versioning.outputs.VERSION }} `
-          -o ./publish
+          dotnet publish DeviceAuditor.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ steps.versioning.outputs.VERSION }} `
+            -p:FileVersion=${{ steps.versioning.outputs.FILE_VERSION }} `
+            -p:AssemblyVersion=${{ steps.versioning.outputs.VERSION }} `
+            -o ./publish
 
       - name: Prepare Artifacts
         shell: pwsh
         run: |
-          Copy-Item "devices.json" -Destination "./publish/devices.json"
-          Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip"
+          if (Test-Path "devices.json") {
+            Copy-Item "devices.json" -Destination "./publish/devices.json" -Force
+          } else {
+            Write-Warning "devices.json not found in repo root - skipping copy"
+          }
+          Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip" -Force
 
-      # --- NEW: GENERATE RELEASE NOTES ---
-      - name: Generate Release Notes
-        id: release_notes
+      - name: Create Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
-          generate_release_notes: true # Automatically generates a list of commits
           tag_name: v${{ steps.versioning.outputs.VERSION }}
           name: DeviceAuditor v${{ steps.versioning.outputs.VERSION }}
-          files: |
-            DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
+          generate_release_notes: true
+          files: DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
           draft: false
           prerelease: false
         env:
