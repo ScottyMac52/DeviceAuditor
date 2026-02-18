@@ -15,7 +15,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="devices.json">
-      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		<CopyToPublishDirectory>Never</CopyToPublishDirectory>
 	</EmbeddedResource>
     <Content Include="images\deviceauditor.ico" />
   </ItemGroup>

@@ -85,21 +85,23 @@ jobs:
       - name: Prepare Artifacts
         shell: pwsh
         run: |
-          if (Test-Path "devices.json") {
-            Copy-Item "devices.json" -Destination "./publish/devices.json" -Force
-          } else {
-            Write-Warning "devices.json not found in repo root - skipping copy"
+          # devices.json should NOT be in publish/ since it's embedded
+          if (Test-Path "./publish/devices.json") {
+            Write-Warning "Unexpected devices.json in publish output — removing"
+            Remove-Item "./publish/devices.json" -Force
           }
+          
           Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip" -Force
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')   # ← keep this to release only on tags
         with:
           tag_name: v${{ steps.versioning.outputs.VERSION }}
           name: DeviceAuditor v${{ steps.versioning.outputs.VERSION }}
           generate_release_notes: true
           files: DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
           draft: false
-          prerelease: false   # ← or true if you want drafts/prereleases on branch pushes
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
