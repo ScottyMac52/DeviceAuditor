@@ -115,7 +115,7 @@ jobs:
           generate_release_notes: true
           files: DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
           draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          prerelease: false
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
