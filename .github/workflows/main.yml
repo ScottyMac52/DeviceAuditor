@@ -49,19 +49,15 @@ jobs:
           $patch = [int]$parts[2]
           
           if ($env:GITHUB_REF -like "refs/tags/*") {
-              # Tagged release: use base as-is (assume already 3 parts)
+              # Tagged release: use base as-is
               $asmVer = "$major.$minor.$patch.0"
               $fileVer = "$major.$minor.$patch.0"
           } else {
-              # CI build: add run number as build/revision
+              # CI / manual run: add run number
               $buildNum = [int]"${{ github.run_number }}"
-              $asmVer = "$major.$minor.$patch.$buildNum"      # valid 4-part for AssemblyVersion
-              $fileVer = "$major.$minor.$patch.$buildNum"     # or make more detailed if desired
+              $asmVer = "$major.$minor.$patch.$buildNum"
+              $fileVer = "$major.$minor.$patch.$buildNum"
           }
-          
-          # Optional: append commit short hash or date for FileVersion if you want more uniqueness
-          # $shortHash = git rev-parse --short HEAD
-          # $fileVer = "$major.$minor.$patch.$buildNum+$shortHash"
           
           Write-Output "VERSION=$asmVer" >> $env:GITHUB_OUTPUT
           Write-Output "FILE_VERSION=$fileVer" >> $env:GITHUB_OUTPUT
@@ -85,7 +81,7 @@ jobs:
       - name: Prepare Artifacts
         shell: pwsh
         run: |
-          # devices.json should NOT be in publish/ since it's embedded
+          # No devices.json copy needed (it's embedded)
           if (Test-Path "./publish/devices.json") {
             Write-Warning "Unexpected devices.json in publish output — removing"
             Remove-Item "./publish/devices.json" -Force
@@ -93,15 +89,32 @@ jobs:
           
           Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip" -Force
 
-      - name: Create Release
+      - name: Create and Push Version Tag (if needed)
+        run: |
+          TAG_NAME="v${{ steps.versioning.outputs.VERSION }}"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists — skipping tag creation"
+          else
+            git tag "$TAG_NAME"
+            git push origin "$TAG_NAME"
+            echo "Created and pushed tag $TAG_NAME"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/v')   # ← keep this to release only on tags
         with:
           tag_name: v${{ steps.versioning.outputs.VERSION }}
           name: DeviceAuditor v${{ steps.versioning.outputs.VERSION }}
+          body: |
+            Automated build from commit ${{ github.sha }}
+            
+            ${{ github.event.head_commit.message || 'Manual trigger via workflow dispatch' }}
           generate_release_notes: true
           files: DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
           draft: false
-          prerelease: false
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
