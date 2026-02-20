@@ -68,8 +68,10 @@ Because the power management key is tied to the specific **Instance ID** (which 
 
 ## **Installation & Requirements**
 
-1. **Framework**: None. The released version is **Self-Contained** and includes all necessary runtimes.  
-2. **Configuration**: Ensure devices.json is in the same folder as the executable.  
-3. **Privileges**: Windows Administrator rights are required to use the \--fix parameter.
+1. **Installation**: Unzip the contents into a folder of your choice.
+2. **Framework**: None. The released version is **Self-Contained** and includes all necessary runtimes.  
+3. **Configuration**: Ensure devices.json is in the same folder as the executable.  
+4. **Privileges**: Windows Administrator rights are required to use the \--fix parameter.
+
 
 # ---
