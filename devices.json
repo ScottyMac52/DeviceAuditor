@@ -1,8 +1,8 @@
 {
   "044F": {
+    "0400": "HOTAS Cougar (Joystick/Throttle)",
     "0402": "HOTAS Warthog Joystick",
     "0404": "HOTAS Warthog Throttle",
-    "0004": "HOTAS Cougar (Joystick/Throttle)",
     "0430": "AVA Base (Viper/F-16 Mode)",
     "0431": "AVA F/A-18 Hornet Flightstick",
     "0432": "Sol-R 3 AVA Add-On Grip",
@@ -27,7 +27,7 @@
     "B68A": "TWCS Throttle",
     "0408": "SimTask FarmStick",
     "B678": "T.Flight Rudder Pedals (TFRP via USB)",
-    "B691": "TPR Pendular Rudder",
+    "B68F": "TPR Pendular Rudder",
     "B692": "TFRP HA Rudder",
     "B108": "T-Flight Hotas X",
     "B10A": "T-Flight Hotas One (Xbox/PC)",
@@ -68,4 +68,5 @@
     "BB10": "WINWING FCU (Flight COntrol Unit) A320",
     "BB20": "WINWING FCU Ursa Minor / J5 Base"
   }
+
 }
