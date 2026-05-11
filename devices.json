@@ -67,6 +67,8 @@
     "BB18": "WINWING MIP MFD (Center/MPCD)",
     "BB10": "WINWING FCU (Flight COntrol Unit) A320",
     "BB20": "WINWING FCU Ursa Minor / J5 Base"
+  },
+  "346E": {
+    "1000": "MOZA AB9 FFB Flight Base"
   }
-
 }
