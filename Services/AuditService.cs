@@ -8,7 +8,8 @@ using System.Text;
 namespace DeviceAuditor.Services
 {
     /// <summary>
-    /// Implements <see cref="IAuditService"/> 
+    /// Improved AuditService that properly handles composite HID devices (multiple MI_ / ColXX entries)
+    /// such as the VID_8089&PID_000C keyboard/mouse combo.
     /// </summary>
     [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "<Windows Only>")]
     public class AuditService : IAuditService
@@ -29,25 +30,23 @@ namespace DeviceAuditor.Services
         private readonly IDeviceDatabase _db;
         private readonly IRepairService _repair;
 
-        /// <summary>
-        /// Ctor
-        /// </summary>
-        /// <param name="db"></param>
-        /// <param name="repair"></param>
         public AuditService(IDeviceDatabase db, IRepairService repair)
         {
             _db = db;
             _repair = repair;
         }
 
-        /// <inheritdoc/>
         public void Run(Options opts)
         {
             Console.WriteLine("===========================================================");
             Console.WriteLine(" MULTI-VENDOR PERIPHERAL AUDITOR - CTS v3.x ENGINE");
             Console.WriteLine("===========================================================\n");
 
-            if (!_db.Load()) { Console.WriteLine("Error: devices.json missing."); return; }
+            if (!_db.Load())
+            {
+                Console.WriteLine("Error: devices.json missing or invalid.");
+                return;
+            }
 
             string[] vendorList = opts.Vendors.Split(',', StringSplitOptions.RemoveEmptyEntries);
             var activeList = new List<DeviceSummary>();
@@ -57,170 +56,255 @@ namespace DeviceAuditor.Services
             {
                 string cleanVid = vid.Trim().ToUpper();
 
-                // 1. ACTIVE SCAN (WMI) - Fix this loop!
-                var searcher = new ManagementObjectSearcher($@"SELECT DeviceID, Caption FROM Win32_PnPEntity WHERE ConfigManagerErrorCode = 0 AND DeviceID LIKE 'HID\\VID_{cleanVid}%'");
-                foreach (ManagementObject node in searcher.Get())
-                {
-                    if (!(node["Caption"]?.ToString()?.Contains("game controller", StringComparison.OrdinalIgnoreCase) ?? false)) continue;
+                Console.WriteLine($"Scanning VID_{cleanVid}...");
 
-                    // Use a locally defined ID variable from the node
-                    string? fullId = node["DeviceID"]?.ToString();
-                    if (string.IsNullOrEmpty(fullId)) continue;
+                // 1. ACTIVE devices (WMI)
+                var activeDevices = ScanActiveDevices(cleanVid);
+                activeList.AddRange(activeDevices);
 
-                    string? pid = ExtractPid(fullId);
-                    string? root = ExtractPhysicalRoot(fullId);
-
-                    // CRITICAL: Pass 'fullId', NOT 'cleanVid'
-                    var pwrInfo = GetParentPowerInfo(fullId);
-
-                    if (!(activeList?.Any(x => x.InstanceID == root) ?? false))
-                        activeList?.Add(new DeviceSummary { Name = _db.GetName(pid, cleanVid), InstanceID = root, Status = pwrInfo.Status, RegistryPath = pwrInfo.Path });
-                }
-
-                // 2. INACTIVE SCAN (REGISTRY)
+                // 2. INACTIVE / Ghost devices (Registry)
                 if (!opts.ActiveOnly)
                 {
-                    // 1. Project the IDs safely, filtering out any potential nulls
-                    var activeIds = activeList?
-                        .Select(a => a.InstanceID ?? string.Empty)
-                        .ToList() ?? [];
+                    var activeKeys = activeDevices.Select(d => d.InstanceID)
+                                                 .Where(id => !string.IsNullOrEmpty(id))
+                                                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-                    // 2. Call the method and ensure we don't pass a null list to AddRange
-                    var ghosts = GetGhostsFromRegistry(cleanVid, activeIds);
-                    if (ghosts != null)
-                    {
-                        inactiveList.AddRange(ghosts);
-                    }
+                    var ghosts = GetGhostsFromRegistry(cleanVid, activeKeys);
+                    inactiveList.AddRange(ghosts);
                 }
             }
 
-            ProcessCategory("ACTIVE HID GAME CONTROLLERS", activeList, opts.Fix);
-            if (!opts.ActiveOnly) ProcessCategory("INACTIVE / HIDDEN CONTROLLERS", inactiveList, opts.Fix);
+            ProcessCategory("ACTIVE HID DEVICES", activeList, opts.Fix);
+            if (!opts.ActiveOnly)
+                ProcessCategory("INACTIVE / GHOST DEVICES", inactiveList, opts.Fix);
 
             Console.WriteLine("\nScan Complete. Press any key to exit.");
             if (!Console.IsInputRedirected) Console.ReadKey();
         }
 
-        private void ProcessCategory(string? title, List<DeviceSummary>? devices, bool autoFix)
-        {
-            Console.WriteLine($"--- {title} ---");
-            if (!(devices?.Any() ?? false)) { Console.WriteLine("None detected."); return; }
+        #region Active Scan (WMI)
 
-            foreach (var dev in devices)
+        private List<DeviceSummary> ScanActiveDevices(string cleanVid)
+        {
+            var devices = new List<DeviceSummary>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var query = $@"SELECT DeviceID, Caption, ContainerID 
+                           FROM Win32_PnPEntity 
+                           WHERE ConfigManagerErrorCode = 0 
+                           AND (DeviceID LIKE 'HID\\VID_{cleanVid}%' OR DeviceID LIKE '%VID_{cleanVid}%')";
+
+            using var searcher = new ManagementObjectSearcher(query);
+
+            foreach (ManagementObject node in searcher.Get())
             {
-                PrintDeviceLine(dev);
-                if (autoFix && dev.Status != 0 && dev.Status != -1)
+                string? fullId = node["DeviceID"]?.ToString();
+                string? containerId = node["ContainerID"]?.ToString();
+                string? caption = node["Caption"]?.ToString();
+
+                if (string.IsNullOrEmpty(fullId)) continue;
+
+                string instanceKey = GetBestInstanceKey(fullId, containerId);
+                if (seen.Contains(instanceKey)) continue;
+                seen.Add(instanceKey);
+
+                string? pid = ExtractPid(fullId);
+                var pwrInfo = GetParentPowerInfo(fullId);
+
+                devices.Add(new DeviceSummary
                 {
-                    bool success = _repair.FixDevice(dev);
-                    if (success) { Console.WriteLine($"      -> Applied FIX: EnhancedPowerManagementEnabled set to 0."); }
-                }
+                    Name = _db.GetName(pid, cleanVid) ?? $"Unknown {cleanVid} Device",
+                    InstanceID = instanceKey,
+                    Status = pwrInfo.Status,
+                    RegistryPath = pwrInfo.Path,
+                    Caption = caption
+                });
             }
-            Console.WriteLine();
+
+            return devices;
         }
 
-        private List<DeviceSummary> GetGhostsFromRegistry(string vid, List<string> activeIds)
+        #endregion
+
+        #region Ghost / Inactive Scan (Registry)
+
+        private List<DeviceSummary> GetGhostsFromRegistry(string vid, HashSet<string> activeInstanceKeys)
         {
             var ghosts = new List<DeviceSummary>();
-            using (var hidKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\HID"))
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            using var hidKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\HID");
+            if (hidKey == null) return ghosts;
+
+            foreach (var pidKeyName in hidKey.GetSubKeyNames()
+                .Where(x => x.Contains($"VID_{vid}", StringComparison.OrdinalIgnoreCase)))
             {
-                if (hidKey == null) return ghosts;
-                foreach (var pidKeyName in hidKey.GetSubKeyNames().Where(x => x.Contains($"VID_{vid}")))
+                using var pidKey = hidKey.OpenSubKey(pidKeyName);
+                if (pidKey == null) continue;
+
+                foreach (var instanceName in pidKey.GetSubKeyNames())
                 {
-                    using (var pidKey = hidKey.OpenSubKey(pidKeyName))
+                    var fullHidId = $@"HID\{pidKeyName}\{instanceName}";
+                    string? containerId = GetContainerId(fullHidId);
+                    string instanceKey = containerId ?? ExtractPhysicalRootFromInstance(instanceName);
+
+                    if (activeInstanceKeys.Contains(instanceKey) || seen.Contains(instanceKey))
+                        continue;
+
+                    seen.Add(instanceKey);
+
+                    string? pid = ExtractPid(pidKeyName);
+                    var pwrInfo = GetParentPowerInfo(fullHidId);
+
+                    ghosts.Add(new DeviceSummary
                     {
-                        foreach (var instanceName in pidKey?.GetSubKeyNames() ?? [])
-                        {
-                            var fullHidId = $@"HID\{pidKeyName}\{instanceName}";
-                            var rootId = ExtractPhysicalRootFromInstance(instanceName);
-
-                            if (!activeIds.Contains(rootId, StringComparer.OrdinalIgnoreCase))
-                            {
-                                var pid = ExtractPid(pidKeyName);
-                                var pwrInfo = GetParentPowerInfo(fullHidId);
-
-                                if (!ghosts.Any(x => x?.InstanceID?.Equals(rootId, StringComparison.OrdinalIgnoreCase) ?? false))
-                                    ghosts.Add(new DeviceSummary { Name = _db.GetName(pid, vid), InstanceID = rootId, Status = pwrInfo.Status, RegistryPath = pwrInfo.Path });
-                            }
-                        }
-                    }
+                        Name = _db.GetName(pid, vid) ?? $"Unknown {vid} Device",
+                        InstanceID = instanceKey,
+                        Status = pwrInfo.Status,
+                        RegistryPath = pwrInfo.Path
+                    });
                 }
             }
+
             return ghosts;
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        private static string GetContainerId(string instanceId)
+        {
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Enum\{instanceId}");
+                return key?.GetValue("ContainerID")?.ToString() ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Best effort unique key for a physical device (ContainerID preferred)
+        /// </summary>
+        private static string GetBestInstanceKey(string? fullId, string? containerId)
+        {
+            if (!string.IsNullOrEmpty(containerId))
+                return containerId;
+
+            return ExtractPhysicalRoot(fullId) ?? fullId ?? "Unknown";
         }
 
         private static (int Status, string? Path) GetParentPowerInfo(string hidInstanceId)
         {
-            if (string.IsNullOrWhiteSpace(hidInstanceId)) return (-1, null);
+            if (string.IsNullOrWhiteSpace(hidInstanceId))
+                return (-1, null);
 
-            // Try to locate the device node (normal first for active devices, then phantom for ghosts)
             uint dnDevInst;
-            int flags = CM_LOCATE_DEVNODE_NORMAL;
-            int cr = CM_Locate_DevNode(out dnDevInst, hidInstanceId, flags);
+            int cr = CM_Locate_DevNode(out dnDevInst, hidInstanceId, CM_LOCATE_DEVNODE_NORMAL);
             if (cr != CR_SUCCESS)
             {
-                flags = CM_LOCATE_DEVNODE_PHANTOM;
-                cr = CM_Locate_DevNode(out dnDevInst, hidInstanceId, flags);
+                cr = CM_Locate_DevNode(out dnDevInst, hidInstanceId, CM_LOCATE_DEVNODE_PHANTOM);
                 if (cr != CR_SUCCESS)
-                {
-                    return (-1, null); // Failed to locate device
-                }
+                    return (-1, null);
             }
 
-            // Get the parent device instance
             uint parentInst;
-            cr = CM_Get_Parent(out parentInst, dnDevInst, 0);
-            if (cr != CR_SUCCESS)
-            {
-                return (-1, null); // No parent or error
-            }
+            if (CM_Get_Parent(out parentInst, dnDevInst, 0) != CR_SUCCESS)
+                return (-1, null);
 
-            // Get the parent device ID
-            StringBuilder buffer = new StringBuilder(1024);
-            cr = CM_Get_Device_ID(parentInst, buffer, buffer.Capacity, 0);
-            if (cr != CR_SUCCESS)
-            {
-                return (-1, null); // Failed to get ID
-            }
+            var buffer = new StringBuilder(1024);
+            if (CM_Get_Device_ID(parentInst, buffer, buffer.Capacity, 0) != CR_SUCCESS)
+                return (-1, null);
 
             string parentId = buffer.ToString();
             string fullPath = $@"SYSTEM\CurrentControlSet\Enum\{parentId}\Device Parameters";
 
-            // Read the power management value
-            using (var pKey = Registry.LocalMachine.OpenSubKey(fullPath, false))
+            using var pKey = Registry.LocalMachine.OpenSubKey(fullPath, false);
+            if (pKey != null)
             {
-                if (pKey != null)
-                {
-                    var val = pKey.GetValue("EnhancedPowerManagementEnabled");
-                    return (val != null ? Convert.ToInt32(val) : -1, fullPath);
-                }
+                var val = pKey.GetValue("EnhancedPowerManagementEnabled");
+                int status = val is int i ? i : (val != null ? Convert.ToInt32(val) : -1);
+                return (status, fullPath);
             }
 
-            // Path exists but key is missing, or path doesn't exist yet
             return (-1, fullPath);
         }
 
-        private static void PrintDeviceLine(DeviceSummary s)
+        private static string? ExtractPhysicalRoot(string? fullId)
         {
-            Console.Write($"{s.Name,-38} | ID: {s.InstanceID,-15} | PWR: ");
-            if (s.Status == 0) { Console.ForegroundColor = ConsoleColor.Green; Console.WriteLine("OPTIMAL"); }
-            else if (s.Status == 1) { Console.ForegroundColor = ConsoleColor.Red; Console.WriteLine("UNSTABLE"); }
-            else Console.WriteLine("DEFAULT");
-            Console.ResetColor();
+            if (string.IsNullOrEmpty(fullId)) return null;
+            var parts = fullId.Split('\\');
+            return parts.Length > 0 ? ExtractPhysicalRootFromInstance(parts.Last()) : null;
         }
 
-        private static string? ExtractPhysicalRoot(string? fullId) => ExtractPhysicalRootFromInstance(fullId?.Split('\\')?.Last());
         private static string? ExtractPhysicalRootFromInstance(string? instancePart)
         {
-            int secondAmp = instancePart?.IndexOf('&', instancePart.IndexOf('&') + 1) ?? -1;
-            return secondAmp != -1 ? instancePart?[..secondAmp] : instancePart;
+            if (string.IsNullOrEmpty(instancePart)) return null;
+
+            int firstAmp = instancePart.IndexOf('&');
+            if (firstAmp == -1) return instancePart;
+
+            int secondAmp = instancePart.IndexOf('&', firstAmp + 1);
+            return secondAmp != -1 ? instancePart[..secondAmp] : instancePart;
         }
 
         private static string? ExtractPid(string? s)
         {
-            if (string.IsNullOrEmpty(s)) return "0000";
-            // If it's a full HID/USB path, find the PID segment
-            if (s.Contains("PID_")) return s.Substring(s.IndexOf("PID_") + 4, 4);
-            return "0000";
+            if (string.IsNullOrEmpty(s)) return null;
+            int idx = s.IndexOf("PID_", StringComparison.OrdinalIgnoreCase);
+            if (idx == -1) return null;
+            return s.Substring(idx + 4, 4);
         }
+
+        #endregion
+
+        #region Output
+
+        private void ProcessCategory(string title, List<DeviceSummary> devices, bool autoFix)
+        {
+            Console.WriteLine($"\n--- {title} ---");
+            if (devices.Count == 0)
+            {
+                Console.WriteLine("None detected.");
+                return;
+            }
+
+            foreach (var dev in devices)
+            {
+                PrintDeviceLine(dev);
+                if (autoFix && dev.Status == 1)
+                {
+                    bool success = _repair.FixDevice(dev);
+                    if (success)
+                        Console.WriteLine("      → EnhancedPowerManagementEnabled = 0 (fix applied)");
+                }
+            }
+        }
+
+        private static void PrintDeviceLine(DeviceSummary s)
+        {
+            Console.Write($"{s.Name,-40} | ID: {s.InstanceID,-20} | PWR: ");
+            if (s.Status == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("OPTIMAL");
+            }
+            else if (s.Status == 1)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Write("UNSTABLE");
+            }
+            else
+            {
+                Console.Write("DEFAULT");
+            }
+            Console.ResetColor();
+            Console.WriteLine();
+        }
+
+        #endregion
     }
 }
