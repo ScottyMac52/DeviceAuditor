@@ -10,7 +10,11 @@
         /// </summary>
         public string? Name { get; set; }
         /// <summary>
-        /// Devie Instance ID
+        /// Device Caption
+        /// </summary>
+		public string? Caption { get; set; }
+        /// <summary>
+        /// Device Instance ID
         /// </summary>
         public string? InstanceID { get; set; }
         /// <summary>
