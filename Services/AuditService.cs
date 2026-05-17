@@ -54,7 +54,9 @@ namespace DeviceAuditor.Services
 
             foreach (var vid in vendorList)
             {
-                string cleanVid = vid.Trim().ToUpper();
+                string cleanVid = vid.Trim()
+                                     .ToUpperInvariant()
+                                     .Replace("VID_", string.Empty);
 
                 Console.WriteLine($"Scanning VID_{cleanVid}...");
 
@@ -89,9 +91,9 @@ namespace DeviceAuditor.Services
             var devices = new List<DeviceSummary>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var query = $@"SELECT DeviceID, Caption, ContainerID 
-                           FROM Win32_PnPEntity 
-                           WHERE ConfigManagerErrorCode = 0 
+            var query = $@"SELECT DeviceID, Caption
+                           FROM Win32_PnPEntity
+                           WHERE ConfigManagerErrorCode = 0
                            AND (DeviceID LIKE 'HID\\VID_{cleanVid}%' OR DeviceID LIKE '%VID_{cleanVid}%')";
 
             using var searcher = new ManagementObjectSearcher(query);
@@ -99,10 +101,11 @@ namespace DeviceAuditor.Services
             foreach (ManagementObject node in searcher.Get())
             {
                 string? fullId = node["DeviceID"]?.ToString();
-                string? containerId = node["ContainerID"]?.ToString();
                 string? caption = node["Caption"]?.ToString();
 
                 if (string.IsNullOrEmpty(fullId)) continue;
+
+                string? containerId = GetContainerId(fullId);
 
                 string instanceKey = GetBestInstanceKey(fullId, containerId);
                 if (seen.Contains(instanceKey)) continue;
@@ -146,7 +149,7 @@ namespace DeviceAuditor.Services
                 {
                     var fullHidId = $@"HID\{pidKeyName}\{instanceName}";
                     string? containerId = GetContainerId(fullHidId);
-                    string instanceKey = containerId ?? ExtractPhysicalRootFromInstance(instanceName);
+                    string instanceKey = containerId ?? ExtractPhysicalRootFromInstance(instanceName) ?? instanceName;
 
                     if (activeInstanceKeys.Contains(instanceKey) || seen.Contains(instanceKey))
                         continue;
@@ -173,16 +176,16 @@ namespace DeviceAuditor.Services
 
         #region Helper Methods
 
-        private static string GetContainerId(string instanceId)
+        private static string? GetContainerId(string instanceId)
         {
             try
             {
                 using var key = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Enum\{instanceId}");
-                return key?.GetValue("ContainerID")?.ToString() ?? string.Empty;
+                return key?.GetValue("ContainerID")?.ToString();
             }
             catch
             {
-                return string.Empty;
+                return null;
             }
         }
 
