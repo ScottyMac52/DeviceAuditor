@@ -35,25 +35,27 @@ jobs:
           $global:LASTEXITCODE = 0
           
           if (-not $latestTag) { 
-              $latestTag = "v3.10.0" 
+              $latestTag = "v3.10.0.0" 
           }
           
           $baseVer = $latestTag.TrimStart('v')
           
-          # Split base version into parts (assume major.minor[.patch])
+          # Normalize version to X.X.X.X
           $parts = $baseVer -split '\.'
-          while ($parts.Count -lt 3) { $parts += '0' }
+          while ($parts.Count -lt 4) { $parts += '0' }
+          if ($parts.Count -gt 4) { $parts = $parts[0..3] }
           
           $major = [int]$parts[0]
           $minor = [int]$parts[1]
           $patch = [int]$parts[2]
+          $revision = [int]$parts[3]
           
           if ($env:GITHUB_REF -like "refs/tags/*") {
-              # Tagged release: use base as-is
-              $asmVer = "$major.$minor.$patch.0"
-              $fileVer = "$major.$minor.$patch.0"
+              # Tagged release: use tag version as X.X.X.X
+              $asmVer = "$major.$minor.$patch.$revision"
+              $fileVer = "$major.$minor.$patch.$revision"
           } else {
-              # CI / manual run: add run number
+              # CI / manual run: add run number as the fourth version part
               $buildNum = [int]"${{ github.run_number }}"
               $asmVer = "$major.$minor.$patch.$buildNum"
               $fileVer = "$major.$minor.$patch.$buildNum"
