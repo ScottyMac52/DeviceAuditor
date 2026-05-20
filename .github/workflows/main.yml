@@ -9,8 +9,65 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  test:
+    name: Run Unit Tests
     runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Run Tests with Coverage
+        run: |
+          dotnet test DeviceAuditor.Tests/DeviceAuditor.Tests.csproj \
+            --no-build \
+            -c Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage \
+            --logger "console;verbosity=normal"
+
+      - name: Generate Coverage Report
+        run: |
+          dotnet tool install --global dotnet-coverage
+          dotnet-coverage report ./coverage/**/coverage.cobertura.xml -o ./coverage/report.html -f html
+          dotnet-coverage report ./coverage/**/coverage.cobertura.xml -o ./coverage/summary.txt -f text
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-report
+          path: |
+            ./coverage/report.html
+            ./coverage/summary.txt
+          retention-days: 30
+
+      - name: Publish Test Coverage Summary
+        uses: irongut/CodeCoverageSummary@v1
+        with:
+          filename: ./coverage/**/coverage.cobertura.xml
+          badge: true
+          fail_below_min: false
+          format: markdown
+          indicators: true
+          thresholds: '70 80'
+
+  release:
+    name: Build & Release
+    runs-on: windows-latest
+    needs: test                    # ← This ensures tests run first
     permissions:
       contents: write
 
@@ -29,6 +86,7 @@ jobs:
         id: versioning
         shell: pwsh
         run: |
+          # (Your existing versioning script - unchanged)
           $global:LASTEXITCODE = 0
           
           $latestTag = git describe --tags --abbrev=0 2>$null
@@ -40,7 +98,6 @@ jobs:
           
           $baseVer = $latestTag.TrimStart('v')
           
-          # Normalize version to X.X.X.X
           $parts = $baseVer -split '\.'
           while ($parts.Count -lt 4) { $parts += '0' }
           if ($parts.Count -gt 4) { $parts = $parts[0..3] }
@@ -51,11 +108,9 @@ jobs:
           $revision = [int]$parts[3]
           
           if ($env:GITHUB_REF -like "refs/tags/*") {
-              # Tagged release: use tag version as X.X.X.X
               $asmVer = "$major.$minor.$patch.$revision"
               $fileVer = "$major.$minor.$patch.$revision"
           } else {
-              # CI / manual run: add run number as the fourth version part
               $buildNum = [int]"${{ github.run_number }}"
               $asmVer = "$major.$minor.$patch.$buildNum"
               $fileVer = "$major.$minor.$patch.$buildNum"
@@ -65,7 +120,6 @@ jobs:
           Write-Output "FILE_VERSION=$fileVer" >> $env:GITHUB_OUTPUT
           
           Write-Host "Assembly/File Version: $asmVer"
-          Write-Host "Detailed File Version: $fileVer"
 
       - name: Dotnet Publish
         run: |
@@ -83,7 +137,6 @@ jobs:
       - name: Prepare Artifacts
         shell: pwsh
         run: |
-          # No devices.json copy needed (it's embedded)
           if (Test-Path "./publish/devices.json") {
             Write-Warning "Unexpected devices.json in publish output — removing"
             Remove-Item "./publish/devices.json" -Force
@@ -91,6 +144,7 @@ jobs:
           
           Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip" -Force
 
+      # ... rest of your release steps (tag + GitHub Release) remain unchanged
       - name: Create and Push Version Tag (if needed)
         shell: bash
         run: |
@@ -121,3 +175,4 @@ jobs:
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
