@@ -43,9 +43,18 @@ jobs:
         run: dotnet tool install --global dotnet-reportgenerator-globaltool
 
       - name: Generate Coverage Report
-        run: reportgenerator -reports:./coverage/**/coverage.cobertura.xml -targetdir:./coverage/report -reporttypes:"Html;TextSummary"
+        run: |
+          reportgenerator -reports:./coverage/**/coverage.cobertura.xml `
+                          -targetdir:./coverage/report `
+                          -reporttypes:"Html;MarkdownSummaryGithub"
 
-      - name: Upload Coverage Report
+      - name: Publish Coverage Summary to Job Log
+        run: |
+          echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
+          Get-Content ./coverage/report/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Full Coverage Report
         uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
