@@ -39,22 +39,24 @@ jobs:
             --results-directory ./coverage `
             --logger "console;verbosity=normal"
 
-      - name: Generate Coverage Report
+      - name: Install ReportGenerator
+        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Generate HTML & Text Coverage Report
         run: |
-          dotnet tool install --global dotnet-coverage
-          dotnet-coverage report ./coverage/**/coverage.cobertura.xml -o ./coverage/report.html -f html
-          dotnet-coverage report ./coverage/**/coverage.cobertura.xml -o ./coverage/summary.txt -f text
+          reportgenerator `
+            -reports:./coverage/**/coverage.cobertura.xml `
+            -targetdir:./coverage/report `
+            -reporttypes:Html;TextSummary
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
         with:
           name: code-coverage-report
-          path: |
-            ./coverage/report.html
-            ./coverage/summary.txt
+          path: ./coverage/report
           retention-days: 30
 
-      - name: Publish Test Coverage Summary
+      - name: Publish Coverage Summary
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: ./coverage/**/coverage.cobertura.xml
@@ -62,8 +64,8 @@ jobs:
           fail_below_min: false
           format: markdown
           indicators: true
-          thresholds: '70 80'
-
+          thresholds: '60 80'
+          
   release:
     name: Build & Release
     runs-on: windows-latest
