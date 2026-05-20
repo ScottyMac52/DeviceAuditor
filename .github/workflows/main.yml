@@ -55,7 +55,7 @@ jobs:
           retention-days: 30
 
       - name: Publish Test Coverage Summary
-        uses: irongut/CodeCoverageSummary@v1
+        uses: irongut/CodeCoverageSummary@v1.3.0   # ← Fixed version
         with:
           filename: ./coverage/**/coverage.cobertura.xml
           badge: true
@@ -67,7 +67,7 @@ jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
-    needs: test                    # ← This ensures tests run first
+    needs: test                    # Tests must pass before release
     permissions:
       contents: write
 
@@ -86,7 +86,6 @@ jobs:
         id: versioning
         shell: pwsh
         run: |
-          # (Your existing versioning script - unchanged)
           $global:LASTEXITCODE = 0
           
           $latestTag = git describe --tags --abbrev=0 2>$null
@@ -144,7 +143,6 @@ jobs:
           
           Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip" -Force
 
-      # ... rest of your release steps (tag + GitHub Release) remain unchanged
       - name: Create and Push Version Tag (if needed)
         shell: bash
         run: |
