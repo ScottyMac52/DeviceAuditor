@@ -92,16 +92,18 @@ public class AuditServiceTests
     public void Run_ProcessesVendors_AndCallsDatabase()
     {
         var options = new Options { Vendors = "044F,4098", ActiveOnly = true };
-
+    
         _dbMock.Setup(d => d.Load()).Returns(true);
         _dbMock.Setup(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()))
-               .Returns("Test Device");
-
+               .Returns("Mocked Device");
+    
+        // Optional: You can make ScanActiveDevices virtual and mock it later if you want full isolation
+    
         _sut.Run(options);
-
+    
         _dbMock.Verify(d => d.Load(), Times.Once);
         _dbMock.Verify(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()), Times.AtLeastOnce);
     }
-
+    
     #endregion
 }
