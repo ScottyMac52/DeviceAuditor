@@ -32,7 +32,7 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          dotnet test DeviceAuditor.Tests/DeviceAuditor.Tests.csproj `
+          dotnet test TestDeviceAuditor/TestDeviceAuditor.csproj `
             --no-build `
             -c Release `
             --collect:"XPlat Code Coverage" `
