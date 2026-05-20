@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    name: Run Unit Tests
+    name: Run Unit Tests & Coverage
     runs-on: windows-latest
 
     steps:
@@ -32,11 +32,11 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          dotnet test DeviceAuditor.Tests/DeviceAuditor.Tests.csproj \
-            --no-build \
-            -c Release \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage \
+          dotnet test DeviceAuditor.Tests/DeviceAuditor.Tests.csproj `
+            --no-build `
+            -c Release `
+            --collect:"XPlat Code Coverage" `
+            --results-directory ./coverage `
             --logger "console;verbosity=normal"
 
       - name: Generate Coverage Report
@@ -55,7 +55,7 @@ jobs:
           retention-days: 30
 
       - name: Publish Test Coverage Summary
-        uses: irongut/CodeCoverageSummary@v1.3.0   # ← Fixed version
+        uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: ./coverage/**/coverage.cobertura.xml
           badge: true
@@ -67,7 +67,7 @@ jobs:
   release:
     name: Build & Release
     runs-on: windows-latest
-    needs: test                    # Tests must pass before release
+    needs: test                    # ← Tests must pass before release
     permissions:
       contents: write
 
