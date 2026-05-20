@@ -1,4 +1,4 @@
-![Device Auditor Banner](images/DeviceAuditor/deviceauditor.jpg)
+![Device Auditor Banner](DeviceAuditor/images/deviceauditor.jpg)
 # ---
 
 **Thrustmaster & WINWING Peripheral Auditor (v3.12)**
