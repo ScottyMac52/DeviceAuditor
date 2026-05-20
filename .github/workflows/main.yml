@@ -69,7 +69,7 @@ jobs:
 
       - name: Dotnet Publish
         run: |
-          dotnet publish DeviceAuditor.csproj `
+          dotnet publish DeviceAuditor\DeviceAuditor.csproj `
             -c Release `
             -r win-x64 `
             --self-contained true `
