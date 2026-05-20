@@ -5,6 +5,9 @@ using System.Management;
 using System.Runtime.InteropServices;
 using System.Text;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("TestDeviceAuditor")]
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("DynamicProxyGenAssembly2")]
+
 namespace DeviceAuditor.Services
 {
     /// <summary>
@@ -86,7 +89,7 @@ namespace DeviceAuditor.Services
 
         #region Active Scan (WMI)
 
-        public List<DeviceSummary> ScanActiveDevices(string cleanVid)
+        internal virtual List<DeviceSummary> ScanActiveDevices(string cleanVid)
         {
             var devices = new List<DeviceSummary>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -131,7 +134,7 @@ namespace DeviceAuditor.Services
 
         #region Ghost / Inactive Scan (Registry)
 
-        public virtual List<DeviceSummary> GetGhostsFromRegistry(string vid, IReadOnlySet<string?> activeInstanceKeys)
+        internal virtual List<DeviceSummary> GetGhostsFromRegistry(string vid, IReadOnlySet<string?> activeInstanceKeys)
         {
             var ghosts = new List<DeviceSummary>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
