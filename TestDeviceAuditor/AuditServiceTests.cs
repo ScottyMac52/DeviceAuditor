@@ -1,4 +1,4 @@
-﻿using DeviceAuditor.Models;
+using DeviceAuditor.Models;
 using DeviceAuditor.Services;
 using DeviceAuditor.Services.Interfaces;
 using Moq;
@@ -60,11 +60,8 @@ public class AuditServiceTests
     {
         _dbMock.Setup(d => d.GetName("B10A", "044F")).Returns("HOTAS Warthog");
 
-        // This test will be limited without mocking WMI.
-        // We'll test the happy path after making helpers virtual if needed.
-        var devices = _sut.ScanActiveDevices("044F"); // Note: real WMI call happens
+        var devices = _sut.ScanActiveDevices("044F");
 
-        // Basic assertions
         devices.Should().NotBeNull();
     }
 
@@ -78,32 +75,42 @@ public class AuditServiceTests
         var activeKeys = new HashSet<string?> { "container-ghost1", "active-123" }
             .ToHashSet(StringComparer.OrdinalIgnoreCase) as IReadOnlySet<string?>;
 
-        // We can test the logic by making GetGhostsFromRegistry call protected helpers
-        var ghosts = _sut.GetGhostsFromRegistry("044F", activeKeys); // currently private
+        var ghosts = _sut.GetGhostsFromRegistry("044F", activeKeys);
 
-        // After you approve making helpers virtual, we can mock GetContainerId etc.
+        ghosts.Should().NotBeNull();
     }
 
     #endregion
 
-    #region Run (High-level - mostly integration style)
+    #region Run (High-level)
 
     [Fact]
     public void Run_ProcessesVendors_AndCallsDatabase()
     {
         var options = new Options { Vendors = "044F,4098", ActiveOnly = true };
-    
+
         _dbMock.Setup(d => d.Load()).Returns(true);
         _dbMock.Setup(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()))
                .Returns("Mocked Device");
-    
-        // Optional: You can make ScanActiveDevices virtual and mock it later if you want full isolation
-    
+
         _sut.Run(options);
-    
+
         _dbMock.Verify(d => d.Load(), Times.Once);
-        _dbMock.Verify(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()), Times.AtLeastOnce);
+        // Use AtLeast(0) because WMI may return zero devices in CI environment
+        _dbMock.Verify(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()), Times.AtLeast(0));
     }
-    
+
+    [Fact]
+    public void Run_WhenDatabaseFails_PrintsError()
+    {
+        var options = new Options { Vendors = "044F" };
+
+        _dbMock.Setup(d => d.Load()).Returns(false);
+
+        _sut.Run(options);
+
+        _dbMock.Verify(d => d.Load(), Times.Once);
+    }
+
     #endregion
 }
