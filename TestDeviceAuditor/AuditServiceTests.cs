@@ -96,8 +96,11 @@ public class AuditServiceTests
         _sut.Run(options);
 
         _dbMock.Verify(d => d.Load(), Times.Once);
-        // Use AtLeast(0) because WMI may return zero devices in CI environment
-        _dbMock.Verify(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()), Times.AtLeast(0));
+        
+        // In CI (GitHub runner) there are no real HID devices, so GetName may not be called
+        // We only verify it was set up correctly and Load() was called
+        _dbMock.Verify(d => d.GetName(It.IsAny<string>(), It.IsAny<string>()), Times.AtLeastOnce, 
+            "GetName should be called when devices are found. If this fails in CI, consider making ScanActiveDevices virtual.");
     }
 
     [Fact]
