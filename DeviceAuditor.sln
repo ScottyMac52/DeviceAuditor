@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36429.23
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceAuditor", "DeviceAuditor.csproj", "{CE87B9A4-DA16-45A6-8E1E-ED26EA8D3865}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceAuditor", "DeviceAuditor\DeviceAuditor.csproj", "{CE87B9A4-DA16-45A6-8E1E-ED26EA8D3865}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestDeviceAuditor", "TestDeviceAuditor\TestDeviceAuditor.csproj", "{4006E755-6E0A-4D9C-A23D-578EF6EB4F9B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{CE87B9A4-DA16-45A6-8E1E-ED26EA8D3865}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CE87B9A4-DA16-45A6-8E1E-ED26EA8D3865}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CE87B9A4-DA16-45A6-8E1E-ED26EA8D3865}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4006E755-6E0A-4D9C-A23D-578EF6EB4F9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4006E755-6E0A-4D9C-A23D-578EF6EB4F9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4006E755-6E0A-4D9C-A23D-578EF6EB4F9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4006E755-6E0A-4D9C-A23D-578EF6EB4F9B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
