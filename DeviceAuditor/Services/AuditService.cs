@@ -179,6 +179,17 @@ namespace DeviceAuditor.Services
 
         #region Helper Methods
 
+        internal static string? ExtractPhysicalRootFromInstance(string? instancePart)
+        {
+            if (string.IsNullOrEmpty(instancePart)) return null;
+
+            int firstAmp = instancePart.IndexOf('&');
+            if (firstAmp == -1) return instancePart;
+
+            int secondAmp = instancePart.IndexOf('&', firstAmp + 1);
+            return secondAmp != -1 ? instancePart[..secondAmp] : instancePart;
+        }
+
         internal virtual string? GetContainerId(string instanceId)
         {
             try
@@ -244,17 +255,6 @@ namespace DeviceAuditor.Services
             if (string.IsNullOrEmpty(fullId)) return null;
             var parts = fullId.Split('\\');
             return parts.Length > 0 ? ExtractPhysicalRootFromInstance(parts.Last()) : null;
-        }
-
-        private static string? ExtractPhysicalRootFromInstance(string? instancePart)
-        {
-            if (string.IsNullOrEmpty(instancePart)) return null;
-
-            int firstAmp = instancePart.IndexOf('&');
-            if (firstAmp == -1) return instancePart;
-
-            int secondAmp = instancePart.IndexOf('&', firstAmp + 1);
-            return secondAmp != -1 ? instancePart[..secondAmp] : instancePart;
         }
 
         public static string? ExtractPid(string? s)
