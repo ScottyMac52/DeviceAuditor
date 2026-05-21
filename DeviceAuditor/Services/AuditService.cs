@@ -179,7 +179,7 @@ namespace DeviceAuditor.Services
 
         #region Helper Methods
 
-        protected virtual string? GetContainerId(string instanceId)
+        internal virtual string? GetContainerId(string instanceId)
         {
             try
             {
@@ -203,7 +203,7 @@ namespace DeviceAuditor.Services
             return ExtractPhysicalRoot(fullId) ?? fullId ?? "Unknown";
         }
 
-        protected virtual (int Status, string? Path) GetParentPowerInfo(string hidInstanceId)
+        internal virtual (int Status, string? Path) GetParentPowerInfo(string hidInstanceId)
         {
             if (string.IsNullOrWhiteSpace(hidInstanceId))
                 return (-1, null);
