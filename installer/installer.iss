@@ -19,7 +19,6 @@ DisableProgramGroupPage=yes
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
-Source: "installer\appsettings.json"; DestDir: "{userappdata}\DeviceAuditor"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\DeviceAuditor"; Filename: "{app}\DeviceAuditor.exe"
