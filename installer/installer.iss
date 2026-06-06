@@ -2,10 +2,12 @@
 
 #define AppName "DeviceAuditor"
 #define AppVersion "0.0.0"
+#define AppPublisher "ScottyMac52"
 #define PublishDir "..\publish"
 
 [Setup]
 AppName={#AppName}
+AppPublisher={#AppPublisher}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 DefaultDirName={autopf}\DeviceAuditor
@@ -19,8 +21,9 @@ ArchitecturesInstallIn64BitMode=x64
 DisableDirPage=no
 DisableProgramGroupPage=yes
 VersionInfoVersion={#AppVersion}
-VersionInfoDescription={#AppName} Installer
+VersionInfoCompany={#AppPublisher}
 VersionInfoProductName={#AppName}
+VersionInfoDescription={#AppName} Installer
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs

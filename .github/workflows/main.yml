@@ -137,11 +137,26 @@ jobs:
       - name: Build Setup.exe
         shell: pwsh
         run: |
-          $version = "${{ steps.versioning.outputs.VERSION }}"
+          $appName = "DeviceAuditor"
+          $appPublisher = "ScottyMac52"
+          $appVersion = "${{ steps.versioning.outputs.VERSION }}"
+
+          Write-Host "=== Building installer with: ==="
+          Write-Host "AppName: $appName"
+          Write-Host "AppPublisher: $appPublisher"
+          Write-Host "AppVersion: $appVersion"
+
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            "/DAppName=$appName" `
+            "/DAppPublisher=$appPublisher" `
+            "/DAppVersion=$appVersion" `
             "/DPublishDir=./publish" `
-            "/DAppVersion=$version" `
             "installer\installer.iss"
+
+          if ($LASTEXITCODE -ne 0) {
+              Write-Error "ISCC.exe failed with exit code $LASTEXITCODE"
+              exit 1
+          }
 
       - name: Stage Setup.exe for release
         shell: pwsh
@@ -150,21 +165,29 @@ jobs:
           $setupDir = "_setup"
           New-Item -ItemType Directory -Force -Path $setupDir | Out-Null
 
-          # Inno Setup might put it in installer\ or root depending on how it resolved OutputDir.
-          # Force it to the exact location the gh-release step expects.
           $found = Get-ChildItem -Path . -Recurse -Filter "DeviceAuditor-Setup-*.exe" | Select-Object -First 1
           if ($found) {
               $target = Join-Path $setupDir "DeviceAuditor-Setup-v$version.exe"
               Move-Item -Path $found.FullName -Destination $target -Force
-              Write-Host "✅ Setup.exe found and staged to $target (size: $((Get-Item $target).Length) bytes)"
+
+              Write-Host "✅ Setup.exe staged to $target"
+
+              # Read and log the actual version info embedded in the exe
+              try {
+                  $verInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($target)
+                  Write-Host "Embedded ProductVersion: $($verInfo.ProductVersion)"
+                  Write-Host "Embedded FileVersion:    $($verInfo.FileVersion)"
+                  Write-Host "Embedded ProductName:    $($verInfo.ProductName)"
+                  Write-Host "Embedded CompanyName:     $($verInfo.CompanyName)"
+              } catch {
+                  Write-Host "Could not read version info: $_"
+              }
           } else {
-              Write-Host "❌ No DeviceAuditor-Setup-*.exe found after ISCC step!"
-              Write-Host "Checking installer directory:"
+              Write-Host "❌ No DeviceAuditor-Setup-*.exe found after ISCC!"
               if (Test-Path "installer") {
+                  Write-Host "installer dir contents:"
                   Get-ChildItem installer | Format-Table Name, Length -AutoSize
               }
-              Write-Host "Checking root for any .exe:"
-              Get-ChildItem -Filter "*.exe" | Format-Table Name, Length -AutoSize
           }
 
       - name: Prepare Artifacts
