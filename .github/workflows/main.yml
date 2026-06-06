@@ -7,6 +7,12 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create GitHub Release + push tag?'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   test:
@@ -172,7 +178,6 @@ jobs:
 
               Write-Host "✅ Setup.exe staged to $target"
 
-              # Read and log the actual version info embedded in the exe
               try {
                   $verInfo = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($target)
                   Write-Host "Embedded ProductVersion: $($verInfo.ProductVersion)"
@@ -198,7 +203,19 @@ jobs:
           }
           Compress-Archive -Path "./publish/*" -DestinationPath "DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip" -Force
 
+      - name: Upload build artifacts (always, for testing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeviceAuditor-build-v${{ steps.versioning.outputs.VERSION }}
+          path: |
+            DeviceAuditor_v${{ steps.versioning.outputs.VERSION }}.zip
+            _setup/DeviceAuditor-Setup-v${{ steps.versioning.outputs.VERSION }}.exe
+          retention-days: 30
+
       - name: Create and Push Version Tag (if needed)
+        if: >-
+          github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true'
         shell: bash
         run: |
           TAG_NAME="v${{ steps.versioning.outputs.VERSION }}"
@@ -213,6 +230,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create or Update GitHub Release
+        if: >-
+          github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') ||
+          github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.versioning.outputs.VERSION }}
