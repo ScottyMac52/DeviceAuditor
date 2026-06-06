@@ -143,6 +143,30 @@ jobs:
             "/DAppVersion=$version" `
             "installer\installer.iss"
 
+      - name: Stage Setup.exe for release
+        shell: pwsh
+        run: |
+          $version = "${{ steps.versioning.outputs.VERSION }}"
+          $setupDir = "_setup"
+          New-Item -ItemType Directory -Force -Path $setupDir | Out-Null
+
+          # Inno Setup might put it in installer\ or root depending on how it resolved OutputDir.
+          # Force it to the exact location the gh-release step expects.
+          $found = Get-ChildItem -Path . -Recurse -Filter "DeviceAuditor-Setup-*.exe" | Select-Object -First 1
+          if ($found) {
+              $target = Join-Path $setupDir "DeviceAuditor-Setup-v$version.exe"
+              Move-Item -Path $found.FullName -Destination $target -Force
+              Write-Host "✅ Setup.exe found and staged to $target (size: $((Get-Item $target).Length) bytes)"
+          } else {
+              Write-Host "❌ No DeviceAuditor-Setup-*.exe found after ISCC step!"
+              Write-Host "Checking installer directory:"
+              if (Test-Path "installer") {
+                  Get-ChildItem installer | Format-Table Name, Length -AutoSize
+              }
+              Write-Host "Checking root for any .exe:"
+              Get-ChildItem -Filter "*.exe" | Format-Table Name, Length -AutoSize
+          }
+
       - name: Prepare Artifacts
         shell: pwsh
         run: |
