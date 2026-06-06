@@ -6,7 +6,6 @@ on:
     tags: [ 'v*' ]
     paths-ignore:
       - '.github/workflows/**'
-      - 'installer/**'
   workflow_dispatch:
     inputs:
       create_release:
@@ -141,23 +140,33 @@ jobs:
         shell: pwsh
         run: choco install innosetup -y
 
-      - name: Build Setup.exe
+      - name: Inject version and publisher into installer.iss
         shell: pwsh
         run: |
           $appName = "DeviceAuditor"
           $appPublisher = "ScottyMac52"
           $appVersion = "${{ steps.versioning.outputs.VERSION }}"
 
-          Write-Host "=== Building installer with: ==="
+          Write-Host "=== Injecting into installer.iss ==="
           Write-Host "AppName: $appName"
           Write-Host "AppPublisher: $appPublisher"
           Write-Host "AppVersion: $appVersion"
 
+          $issPath = "installer\installer.iss"
+          $content = Get-Content $issPath -Raw
+
+          $content = $content -replace '#define AppVersion "0.0.0"', "#define AppVersion `"$appVersion`""
+          $content = $content -replace '#define AppPublisher "ScottyMac52"', "#define AppPublisher `"$appPublisher`""
+
+          Set-Content -Path $issPath -Value $content -NoNewline
+
+          Write-Host "Version and publisher injected into .iss"
+
+      - name: Build Setup.exe
+        shell: pwsh
+        run: |
           $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           $isccArgs = @(
-            "/DAppName=$appName",
-            "/DAppPublisher=$appPublisher",
-            "/DAppVersion=$appVersion",
             "/DPublishDir=./publish",
             "installer\installer.iss"
           )
