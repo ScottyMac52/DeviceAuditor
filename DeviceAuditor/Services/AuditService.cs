@@ -42,7 +42,7 @@ namespace DeviceAuditor.Services
         public void Run(Options opts)
         {
             Console.WriteLine("===========================================================");
-            Console.WriteLine(" MULTI-VENDOR PERIPHERAL AUDITOR - CTS v3.x ENGINE");
+            Console.WriteLine(" MULTI-VENDOR PERIPHERAL AUDITOR");
             Console.WriteLine("===========================================================\n");
 
             if (!_db.Load())

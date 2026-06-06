@@ -43,7 +43,7 @@ class PeripheralAuditor
 
         try
         {
-            Log.Debug("Starting Peripheral Auditor (CTS v3.x)");  // Use Info instead of Debug for startup
+            Log.Debug("Starting Peripheral Auditor");  // Use Info instead of Debug for startup
 
             var services = new ServiceCollection();
 

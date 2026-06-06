@@ -87,8 +87,8 @@
     "52D0": "ButtKicker Gamer Plus"
   },
   "04B4": {
-	"0007": "Cypress Semiconductor Corp (0007)", 
-	"6572": "Cypress Semiconductor Corp (6572)"  
+	  "0007": "Cypress Semiconductor Corp (0007)", 
+	  "6572": "Cypress Semiconductor Corp (6572)"  
   },
   "0B05": {
     "1815": "ASUS ROG Centurion 7.1 (1815)",
@@ -104,8 +104,8 @@
     "010F": "OnYourTwelve F-14 PDCP Panel"
   },
   "231D": {
-	"0128": "VKBSim Gunfighter F14 (0128)",
-	"0916": "VKBSim Gunfighter F14 (0916)",
-	"2200": "VKBSim Gunfighter F14 (2200)"
+	  "0128": "VKBSim Gunfighter F14 (0128)",
+	  "0916": "VKBSim Gunfighter F14 (0916)",
+	  "2200": "VKBSim Gunfighter F14 (2200)"
   }
 }
