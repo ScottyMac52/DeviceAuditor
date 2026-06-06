@@ -7,6 +7,7 @@
 [Setup]
 AppName={#AppName}
 AppVersion={#AppVersion}
+AppVerName={#AppName} {#AppVersion}
 DefaultDirName={autopf}\DeviceAuditor
 DefaultGroupName=DeviceAuditor
 PrivilegesRequired=admin
@@ -17,6 +18,9 @@ SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
 DisableDirPage=no
 DisableProgramGroupPage=yes
+VersionInfoVersion={#AppVersion}
+VersionInfoDescription={#AppName} Installer
+VersionInfoProductName={#AppName}
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
