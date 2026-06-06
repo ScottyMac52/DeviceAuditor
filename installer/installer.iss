@@ -25,7 +25,7 @@ VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoProductName={#AppName}
 VersionInfoDescription={#AppName} Installer
-UninstallDisplayName={#AppVerName}
+UninstallDisplayName={#AppName}
 UninstallDisplayVersion={#AppVersion}
 
 [Files]
