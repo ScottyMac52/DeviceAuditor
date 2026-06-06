@@ -155,8 +155,8 @@ jobs:
           $issPath = "installer\installer.iss"
           $content = Get-Content $issPath -Raw
 
-          $content = $content -replace '#define AppVersion "0.0.0"', "#define AppVersion `"$appVersion`""
-          $content = $content -replace '#define AppPublisher "ScottyMac52"', "#define AppPublisher `"$appPublisher`""
+          $content = $content -replace '(?m)^#define AppVersion ".*"', "#define AppVersion `"$appVersion`""
+          $content = $content -replace '(?m)^#define AppPublisher ".*"', "#define AppPublisher `"$appPublisher`""
 
           Set-Content -Path $issPath -Value $content -NoNewline
 
