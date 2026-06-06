@@ -2,7 +2,7 @@
 
 #define AppName "DeviceAuditor"
 #define AppVersion "0.0.0"
-#define AppPublisher "Vyper Industries"
+#define AppPublisher "ScottyMac52"
 #define PublishDir "..\publish"
 
 [Setup]
@@ -10,6 +10,7 @@ AppName={#AppName}
 AppPublisher={#AppPublisher}
 AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
+AppPublisherURL=https://github.com/ScottyMac52/DeviceAuditor
 DefaultDirName={autopf}\DeviceAuditor
 DefaultGroupName=DeviceAuditor
 PrivilegesRequired=admin
@@ -24,6 +25,8 @@ VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoProductName={#AppName}
 VersionInfoDescription={#AppName} Installer
+UninstallDisplayName={#AppVerName}
+UninstallDisplayVersion={#AppVersion}
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs

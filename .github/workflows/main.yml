@@ -152,12 +152,16 @@ jobs:
           Write-Host "AppPublisher: $appPublisher"
           Write-Host "AppVersion: $appVersion"
 
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
-            "/DAppName=$appName" `
-            "/DAppPublisher=$appPublisher" `
-            "/DAppVersion=$appVersion" `
-            "/DPublishDir=./publish" `
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          $isccArgs = @(
+            "/DAppName=$appName",
+            "/DAppPublisher=$appPublisher",
+            "/DAppVersion=$appVersion",
+            "/DPublishDir=./publish",
             "installer\installer.iss"
+          )
+
+          & $isccPath @isccArgs
 
           if ($LASTEXITCODE -ne 0) {
               Write-Error "ISCC.exe failed with exit code $LASTEXITCODE"
