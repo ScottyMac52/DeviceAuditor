@@ -2,7 +2,7 @@
 
 #define AppName "DeviceAuditor"
 #define AppVersion "0.0.0"
-#define AppPublisher "Vyper Industries"
+#define AppPublisher "ScottyMac52"
 #define PublishDir "..\publish"
 
 [Setup]
@@ -25,8 +25,7 @@ VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoProductName={#AppName}
 VersionInfoDescription={#AppName} Installer
-UninstallDisplayName={#AppName}
-UninstallDisplayVersion={#AppVersion}
+UninstallDisplayName={#AppVerName}
 
 [Files]
 Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
