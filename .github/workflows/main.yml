@@ -144,7 +144,7 @@ jobs:
         shell: pwsh
         run: |
           $appName = "DeviceAuditor"
-          $appPublisher = "ScottyMac52"
+          $appPublisher = "Vyper Industries"
           $appVersion = "${{ steps.versioning.outputs.VERSION }}"
 
           Write-Host "=== Injecting into installer.iss ==="
