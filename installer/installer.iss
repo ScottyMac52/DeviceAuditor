@@ -2,7 +2,7 @@
 
 #define AppName "DeviceAuditor"
 #define AppVersion "0.0.0"
-#define AppPublisher "ScottyMac52"
+#define AppPublisher "Vyper Industries"
 #define PublishDir "..\publish"
 
 [Setup]
